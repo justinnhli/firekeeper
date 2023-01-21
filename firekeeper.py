@@ -48,17 +48,39 @@ ACCEPTED = Status('accepted')
 ARCHIVED = Status('archived')
 
 
-class URLTemp:
+class URL:
 
     def __init__(self, url):
-        # type: (URL) -> None
-        self.url = url
-        _, self.netloc, self.path, *_ = urlsplit(url)
+        # type: (str) -> None
+        parts = urlsplit(url.strip('/'))
+        self.scheme, self.netloc, self.path, *_ = parts
+        if parts.port:
+            self.netloc = self.netloc[:-len(str(parts.port)) - 1]
         self.domain = '.'.join(self.netloc.split('.')[-2:])
+        self.url = f'{self.scheme}://{self.netloc}{self.path}'
 
+    def __eq__(self, other):
+        # type: (Any) -> bool
+        return self.url == other.url
 
-class URL(str):
-    pass
+    def __le__(self, other):
+        # type: (Any) -> bool
+        return self.url < other.url
+
+    def __hash__(self):
+        # type: () -> int
+        return hash(self.url)
+
+    def __str__(self):
+        # type: () -> str
+        return str(self.url)
+
+    @property
+    def archive_path(self):
+        # type: () -> Path
+        return (
+            ARCHIVE_PATH / f'{self.domain}/{self.netloc}{self.path}'
+        ).with_suffix('.html')
 
 
 class Rule:
@@ -110,19 +132,11 @@ class Rule:
 
     def matches(self, url):
         # type: (URL) -> bool
-        parts = urlsplit(url)
-        scheme, netloc, path, *_ = parts
-        if parts.port:
-            netloc = netloc[:-len(str(parts.port)) - 1]
         return bool(
-            self.scheme_regex.search(scheme)
-            and self.netloc_regex.search(netloc)
-            and self.path_regex.search(path.lstrip('/'))
+            self.scheme_regex.search(url.scheme)
+            and self.netloc_regex.search(url.netloc)
+            and self.path_regex.search(url.path.lstrip('/'))
         )
-
-
-class RuleBook:
-    pass
 
 
 Cache = dict[Status, set[URL]]
@@ -132,12 +146,18 @@ RuleBook = dict[Status, list[Rule]]
 def read_urls():
     # type: () -> Cache
     with open('urls', encoding='utf-8') as fd:
-        return {status: set(urls) for status, urls in json_load(fd).items()}
+        return {
+            status: set(URL(url) for url in urls)
+            for status, urls in json_load(fd).items()
+        }
 
 
 def write_urls(cache):
     # type: (Cache) -> None
-    cache_obj = {status: sorted(urls) for status, urls in cache.items()}
+    cache_obj = {
+        status: sorted(str(url) for url in urls)
+        for status, urls in cache.items()
+    }
     with open('urls', 'w', encoding='utf-8') as fd:
         json_dump(cache_obj, fd)
 
@@ -202,10 +222,7 @@ def add_history_to_cache(cache):
     # type: (Cache) -> None
     # pylint: disable = consider-using-f-string
     new_urls = get_history() - set().union(*cache.values())
-    cache[UNSORTED].update(
-        '{}://{}{}'.format(*urlsplit(url)[:3]).strip('/')
-        for url in new_urls
-    )
+    cache[UNSORTED].update(url for url in new_urls)
 
 
 def get_history(profile=None):
@@ -221,7 +238,7 @@ def get_history(profile=None):
         con = sqlite3.connect(temp_db)
         cur = con.cursor()
         for row, in cur.execute('SELECT DISTINCT url FROM moz_places'):
-            urls.add(row)
+            urls.add(URL(row))
     return urls
 
 
@@ -300,9 +317,9 @@ def do_reset(cache):
     # check for urls that have been archived
     used_archive_files = set()
     for url in list(cache[ACCEPTED]):
-        path = get_archive_path(url)
-        if path.exists():
-            used_archive_files.add(path)
+        archive_path = url.archive_path
+        if archive_path.is_file():
+            used_archive_files.add(archive_path)
             cache[ACCEPTED].discard(url)
             cache[ARCHIVED].add(url)
     # delete archived files that are not in the cache
@@ -352,7 +369,7 @@ def do_archive(cache, limit=-1):
 
 def archive_url(url):
     # type: (URL) -> None
-    archive_path = get_archive_path(url)
+    archive_path = url.archive_path
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
         'monolith',
@@ -362,20 +379,9 @@ def archive_url(url):
         '--insecure',
         '--timeout', '30',
         '--output', str(archive_path),
-        url,
+        str(url),
     ]
     run_subprocess(command, check=False)
-
-
-def get_archive_path(url):
-    # type: (URL) -> Path
-    parts = urlsplit(url)
-    _, netloc, path, *_ = parts
-    domain = '.'.join(netloc.split('.')[-2:])
-    result = ARCHIVE_PATH / f'{domain}/{netloc}{path}'
-    if result.suffix != '.html':
-        result = result.parent / (result.stem + '.html')
-    return result
 
 
 # LINT
@@ -412,8 +418,7 @@ def lint_conflicting_rules(cache, rules):
 def lint_verify_archive(cache, _):
     # type: (Cache, RuleBook) -> None
     for url in cache[ARCHIVED]:
-        path = get_archive_path(url)
-        if not path.exists():
+        if not url.archive_path.is_file():
             print(f'URL archive missing: {url}')
 
 
