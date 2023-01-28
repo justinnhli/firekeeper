@@ -12,15 +12,15 @@
         </style>
         <script>
             function add_rule(rule_type) {
-                var xhr = new XMLHttpRequest();
-                var data = {
+                let xhr = new XMLHttpRequest();
+                let data = {
                     'preempt': document.getElementById('preempt').checked,
                     'scheme': document.getElementById('scheme').value,
                     'netloc': document.getElementById('netloc').value,
                     'path': document.getElementById('path').value,
                     'rule_type': rule_type,
                 };
-                var params = Object.keys(data).map(
+                let params = Object.keys(data).map(
                     function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]) }
                 ).join('&');
                 xhr.open('POST', '/api/add-rule');
@@ -42,30 +42,30 @@
                       .then((data) => {
 
                         function add_children(parent, parts, node) {
-                            var [count, children] = node;
-                            var part_name = parts[parts.length - 1];
+                            let [count, children] = node;
+                            let part_name = parts[parts.length - 1];
                             if (part_name) {
                                 while (children.length === 1) {
                                     [[new_part, [count, children]]] = children;
                                     part_name += '/' + new_part;
                                 }
                             }
-                            var sublist = (part_name ? document.createElement('ul') : parent);
+                            let sublist = (part_name ? document.createElement('ul') : parent);
                             for (const [child_name, child_node] of children) {
                                 if (child_node.length > 0) {
                                     add_children(sublist, [...parts, child_name], child_node);
                                 }
                             }
                             if (part_name) {
-                                var item = document.createElement('li');
+                                let item = document.createElement('li');
                                 if (count === 0) {
-                                    //var url = 'https://' + parts.slice(1).join('/');
+                                    //let url = 'https://' + parts.slice(1).join('/');
                                     if (parts[1] == 'admiralcloudberg.medium.com') {
                                         console.log(parts);
                                         console.log(children);
                                         console.log(part_name);
                                     }
-                                    var url = 'https://' + [...parts.slice(1), ...[part_name]].join('/');
+                                    let url = 'https://' + [...parts.slice(1), ...[part_name]].join('/');
                                     item.innerHTML = '<a href="' + url + '">' + url + '</a>';
                                 } else {
                                     item.innerHTML = '<span class="expando">(' + count + ') ' + part_name + '</span>';
@@ -75,15 +75,15 @@
                             }
                         }
 
-                        var urls_elem = document.getElementById(data['status'] + '-urls');
-                        var count_elem = document.getElementById(data['status'] + '-count');
+                        let urls_elem = document.getElementById(data['status'] + '-urls');
+                        let count_elem = document.getElementById(data['status'] + '-count');
                         count_elem.innerHTML = data['trie'][0];
                         urls_elem.innerHTML = '';
                         add_children(urls_elem, [], data['trie']);
                         for (const elem of urls_elem.getElementsByClassName('expando')) {
                             elem.addEventListener('click', (event) => {
-                                var list_item = event.target.parentElement;
-                                var hide = list_item.classList.contains('showing');
+                                let list_item = event.target.parentElement;
+                                let hide = list_item.classList.contains('showing');
                                 for (const child of list_item.children) {
                                     if (child.tagName !== 'UL') {
                                         continue;
