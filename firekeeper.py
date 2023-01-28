@@ -360,6 +360,8 @@ def do_archive(cache, limit=-1):
     shuffle(urls)
     if limit > 0:
         urls = urls[:limit]
+    else:
+        limit = len(urls)
     for i, url in enumerate(urls, start=1):
         print(f'{i}/{limit}: {url}')
         archive_url(url)
