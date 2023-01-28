@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 from collections import defaultdict, Counter
 from enum import Enum
 from itertools import permutations, combinations, product
-from json import load as json_load, dump as json_dump
+from json import load as json_load, dumps as json_to_str
 from pathlib import Path
 from platform import system
 from random import random, shuffle
@@ -154,12 +154,12 @@ def read_urls():
 
 def write_urls(cache):
     # type: (Cache) -> None
-    cache_obj = {
+    json_obj = {
         status: sorted(str(url) for url in urls)
         for status, urls in cache.items()
     }
     with open('urls', 'w', encoding='utf-8') as fd:
-        json_dump(cache_obj, fd)
+        fd.write(json_to_str(json_obj, indent=4))
 
 
 def read_rules():
@@ -173,11 +173,11 @@ def read_rules():
 
 def write_rules(rules):
     # type: (RuleBook) -> None
-    rules_obj = {REJECTED: [], ACCEPTED: []} # type: dict[Status, list[str]]
+    json_obj = {REJECTED: [], ACCEPTED: []} # type: dict[Status, list[str]]
     for status, ruleset in rules.items():
-        rules_obj[status] = sorted(str(rule) for rule in ruleset)
+        json_obj[status] = sorted(str(rule) for rule in ruleset)
     with open('rules', 'w', encoding='utf-8') as fd:
-        json_dump(rules_obj, fd)
+        fd.write(json_to_str(json_obj, indent=4))
 
 
 # MAIN
