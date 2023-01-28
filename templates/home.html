@@ -7,7 +7,10 @@
         <style>
             .url-column {float:left; width:33.33%; overflow:hidden;}
             .url-column ul {white-space:nowrap; padding-left:1em;}
-            .url-column ul ul {display:none;}
+            .url-column li.expanded {list-style-type: "\25BE\20";}
+            .url-column li.collapsed {list-style-type: "\25B8\20";}
+            .url-column li.collapsed ul {display:none;}
+            .url-column li.link {list-style-type: "\25AA\20";}
             .url-column span.expando:hover {cursor:pointer; text-decoration:underline;}
         </style>
         <script>
