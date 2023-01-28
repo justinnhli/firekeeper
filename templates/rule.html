@@ -1,0 +1,122 @@
+<!DOCTYPE HTML>
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <title>HTML File</title>
+    <style>
+        .url-column {float:left; width:33.33%; overflow:hidden;}
+        .url-column ul {white-space:nowrap; padding-left:1em;}
+        .url-column li.expanded {list-style-type: "\25BE\20";}
+        .url-column li.collapsed {list-style-type: "\25B8\20";}
+        .url-column li.collapsed ul {display:none;}
+        .url-column li.link {list-style-type: "\25AA\20";}
+        .url-column span.expando:hover {cursor:pointer; text-decoration:underline;}
+    </style>
+    <script>
+        function test_rule(rule_type) {
+            let preempt = document.getElementById('preempt');
+            let scheme = document.getElementById('scheme');
+            let netloc = document.getElementById('netloc');
+            let path = document.getElementById('path');
+            let data = {
+                'preempt': preempt.checked,
+                'scheme': scheme.value,
+                'netloc': netloc.value,
+                'path': path.value,
+                'rule_type': rule_type,
+            };
+            let options = {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data),
+            };
+
+            fetch('/api/test-rule', options)
+            .then((response) => response.json())
+            .then((data) => {
+
+                console.log('Success:', data);
+
+                function add_children(dom_parent, url_prefix, node) {
+                    let part_name = node.part;
+                    while (node.children.length === 1 && node.children[0].count === node.count) {
+                        node = node.children[0];
+                        part_name += '/' + node.part;
+                    }
+                    let item = document.createElement('li');
+                    if (node.count === 1) {
+                        let url = url_prefix + '/' + part_name;
+                        url = 'https://' + url.substring(url.indexOf('/', 1) + 1);
+                        item.innerHTML = '<a href="' + url + '">' + url + '</a>';
+                        item.classList.toggle('link');
+                    } else {
+                        item.innerHTML = '<span class="expando">(' + node.count + ') ' + part_name + '</span>';
+                        item.classList.toggle('collapsed');
+                    }
+                    let sublist = document.createElement('ul');
+                    for (const child of node.children) {
+                        add_children(sublist, url_prefix + '/' + part_name, child);
+                    }
+                    item.append(sublist);
+                    dom_parent.append(item);
+                };
+
+                let urls_elem = document.getElementById(data['rule_type'] + '-urls');
+                let count_elem = document.getElementById(data['rule_type'] + '-count');
+                // count_elem.innerHTML = data['count']; // FIXME
+                urls_elem.innerHTML = '';
+                for (const child of data['matched']) {
+                    add_children(urls_elem, '', child);
+                }
+                for (const elem of urls_elem.getElementsByClassName('expando')) {
+                    elem.addEventListener('click', (event) => {
+                        let list_item = event.target.parentElement;
+                        let hide = list_item.classList.contains('expanded');
+                        for (const child of list_item.children) {
+                            if (child.tagName !== 'UL') {
+                                continue;
+                            }
+                            if (hide) {
+                                child.style.display = 'none';
+                            } else {
+                                child.style.display = 'block';
+                            }
+                        }
+                        list_item.classList.toggle('expanded');
+                        list_item.classList.toggle('collapsed');
+                    });
+                }
+
+
+            });
+        };
+    </script>
+</head>
+<body>
+
+
+<div id="rule">
+    <button onclick="test_rule('rejected');">Reject</button>
+    <input id="preempt" name="preempt" type="checkbox"><label for="preempt">Preempt</label>
+    <input id="scheme" type="text"></input>://<input id="netloc" type="text"></input>/<input id="path" type="text"></input>
+    <button onclick="test_rule('accepted');">Accept</button>
+</div>
+<div id="urls">
+    <div class="url-column">
+        <h2>Rejected URLs (<span id="rejected-count"></span>)</h2>
+        <ul id="rejected-urls">
+        </ul>
+    </div>
+    <div class="url-column">
+        <h2>Unsorted URLs (<span id="unsorted-count"></span>)</h2>
+        <ul id="unsorted-urls">
+        </ul>
+    </div>
+    <div class="url-column">
+        <h2>Accepted URLs (<span id="accepted-count"></span>)</h2>
+        <ul id="accepted-urls">
+        </ul>
+    </div>
+</div>
+
+</body>
+</html>

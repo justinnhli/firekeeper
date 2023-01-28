@@ -37,6 +37,7 @@ app = Flask(__name__)
 
 RULES = read_rules()
 URLS = read_urls()
+HARD_REJECTS = []
 
 
 def create_rule_from_request(form):
@@ -78,8 +79,45 @@ def urls_to_trie(urls):
 
 
 @app.route('/')
-def home():
+def home_view():
     return render_template('home.html')
+
+
+@app.route('/rule')
+def rule_view():
+    return render_template('rule.html')
+
+
+@app.route('/api/test-rule', methods=['POST'])
+def test_rule():
+    rule_type = request.json['rule_type']
+    new_rule = create_rule_from_request(request.json)
+    new_matched = []
+    unmatched = []
+    for url in URLS[UNSORTED]:
+        if new_rule.matches(url):
+            new_matched.append(url)
+    if rule_type == ACCEPTED:
+        if not HARD_REJECTS:
+            preempt_rules = [rule for rule in RULES[REJECTED] if rule.preempt]
+            for url in URLS[REJECTED]:
+                if not any(rule.matches(url) for rule in preempt_rules):
+                    HARD_REJECTS.append(url)
+        for url in HARD_REJECTS:
+            if new_rule.matches(url):
+                unmatched.append(url)
+    elif new_rule.preempt:
+        for url in URLS[ACCEPTED]:
+            if new_rule.matches(url):
+                unmatched.append(url)
+    for url in sorted(new_matched):
+        print(url)
+    result = jsonify({
+        'rule_type': rule_type,
+        'switched': urls_to_trie(unmatched),
+        'matched': urls_to_trie(new_matched),
+    })
+    return result
 
 
 @app.route('/api/add-rule', methods=['POST'])
