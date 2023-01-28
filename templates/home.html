@@ -38,8 +38,8 @@
                 for (const url_status of ['rejected', 'unsorted', 'accepted', 'conflict']) {
                 //for (const url_status of ['accepted']) {
                     fetch('/api/get-urls/' + url_status)
-                      .then((response) => response.json())
-                      .then((data) => {
+                    .then((response) => response.json())
+                    .then((data) => {
 
                         function add_children(parent, parts, node) {
                             let [count, children] = node;
@@ -98,7 +98,7 @@
                                 list_item.classList.toggle('collapsed');
                             });
                         }
-                      });
+                    });
                 }
             };
         </script>
