@@ -7,7 +7,7 @@ import sqlite3
 from argparse import ArgumentParser
 from collections import defaultdict, Counter
 from enum import Enum
-from itertools import permutations, combinations, product
+from itertools import permutations, product, chain
 from json import load as json_load, dumps as json_to_str
 from pathlib import Path
 from platform import system
@@ -428,37 +428,35 @@ def lint_verify_archive(cache, _):
 def lint_redundant_rules(cache, rulebook):
     # type: (Cache, RuleBook) -> None
     # pylint: disable = too-many-branches
-    dominating = defaultdict(set)
     rules = [*rulebook[ACCEPTED], *rulebook[REJECTED]]
     for rule, count in Counter(rules).most_common():
         if count > 1:
             print(f'duplicate rule: {rule}')
         else:
             break
-    for urls in cache.values():
-        for url in urls:
-            matched = set()
-            unmatched = set()
-            for rule in rules:
-                if rule.matches(url):
-                    matched.add(rule)
-                else:
-                    unmatched.add(rule)
-            for matched_rule, unmatched_rule in product(matched, unmatched):
-                dominating[matched_rule].add(unmatched_rule)
+    dominating = defaultdict(set)
+    for url in chain(*cache.values()):
+        matched = set()
+        unmatched = set()
+        for rule in rules:
+            if rule.matches(url):
+                matched.add(rule)
+            else:
+                unmatched.add(rule)
+        for matched_rule, unmatched_rule in product(matched, unmatched):
+            dominating[matched_rule].add(unmatched_rule)
     unmatched_rules = set(rules) - set(dominating)
     for rule in unmatched_rules:
         print(f'rule never matched: {rule}')
     num_accepted = len(rulebook[ACCEPTED])
     for rule_subset in [rules[:num_accepted], rules[num_accepted:]]:
-        for rule1, rule2 in combinations(rule_subset, 2):
-            if rule1.preempt != rule2.preempt:
+        for supord, subord in permutations(rule_subset, 2):
+            if supord.preempt != subord.preempt:
                 continue
-            for superord, subord in permutations([rule1, rule2]):
-                if subord in unmatched_rules:
-                    continue
-                if subord in dominating[superord] and superord not in dominating[subord]:
-                    print(f'redundant rule: {superord} > {subord}')
+            if subord in unmatched_rules:
+                continue
+            if subord in dominating[supord] and supord not in dominating[subord]:
+                print(f'redundant rule: {supord} > {subord}')
 
 
 if __name__ == '__main__':
