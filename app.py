@@ -41,6 +41,32 @@ RULES = read_rules()
 URLS = read_urls()
 
 
+def urls_to_trie(urls):
+
+    def recursive_sort(nodes):
+        return sorted(
+            (
+                {
+                    'part': part,
+                    'count': count,
+                    'children': recursive_sort(children),
+                } for part, (count, children) in nodes.items()
+            ),
+            key=(lambda obj: (-obj['count'], obj['part'])),
+        )
+
+    trie = {}
+    for url in urls:
+        parts = [url.domain, url.netloc, *url.path.strip('/').split('/')]
+        parent = trie
+        for part in parts:
+            if part not in parent:
+                parent[part] = [0, {}]
+            parent[part][0] += 1
+            parent = parent[part][1]
+    return recursive_sort(trie)
+
+
 @app.route('/')
 def home():
     return render_template('home.html')
@@ -86,52 +112,11 @@ def get_urls(status):
         urls = sorted(URLS[ACCEPTED] | URLS[ARCHIVED])
     elif status == 'conflict':
         urls = [] # FIXME
-    trie = {}
-    for url in urls:
-        _, netloc, path, *_ = urlsplit(url)
-        domain = '.'.join(netloc.split('.')[-2:])
-        parts = [domain, netloc, *path.strip('/').split('/')]
-        parent = trie
-        for part in parts:
-            if part not in parent:
-                parent[part] = [0, {}]
-            parent[part][0] += 1
-            parent = parent[part][1]
-    # FIXME standard trie problem: what to do with URLs that are prefixes of each other?
-    #     chloerainezeller.medium.com
-    #     chloerainezeller.medium.com/...
 
-    def recursive_sort(node):
-        # FIXME
-        '''
-        if 'chloerainezeller' in ''.join(node[1].keys()):
-            print(node)
-        '''
-        return [
-            node[0],
-            [
-                [part, recursive_sort(child)] for part, child in sorted(
-                    node[1].items(),
-                    key=(lambda pair: (-pair[1][0], pair[0])),
-                )
-            ],
-        ]
-        if len(node[1]) == 0:
-            return [0, []]
-        return [
-            node[0],
-            [
-                [part, recursive_sort(child)] for part, child in sorted(
-                    node[1].items(),
-                    key=(lambda pair: (-pair[1][0], pair[0])),
-                )
-            ],
-        ]
-
-    total = sum(count for count, _ in trie.values())
     return jsonify({
-        'status':status,
-        'trie': recursive_sort([total, trie]),
+        'status': status,
+        'count': len(urls),
+        'trie': urls_to_trie(urls),
     })
 
 

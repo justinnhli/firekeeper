@@ -40,45 +40,37 @@
                     .then((response) => response.json())
                     .then((data) => {
 
-                        function add_children(parent, parts, node) {
-                            let [count, children] = node;
-                            let part_name = parts[parts.length - 1];
-                            if (part_name) {
-                                while (children.length === 1) {
-                                    [[new_part, [count, children]]] = children;
-                                    part_name += '/' + new_part;
-                                }
+                        function add_children(dom_parent, url_prefix, node) {
+                            let part_name = node.part;
+                            while (node.children.length === 1 && node.children[0].count === node.count) {
+                                node = node.children[0];
+                                part_name += '/' + node.part;
                             }
-                            let sublist = (part_name ? document.createElement('ul') : parent);
-                            for (const [child_name, child_node] of children) {
-                                if (child_node.length > 0) {
-                                    add_children(sublist, [...parts, child_name], child_node);
-                                }
+                            let item = document.createElement('li');
+                            if (node.count === 1) {
+                                let url = url_prefix + '/' + part_name;
+                                url = 'https://' + url.substring(url.indexOf('/', 1) + 1);
+                                item.innerHTML = '<a href="' + url + '">' + url + '</a>';
+                                item.classList.toggle('link');
+                            } else {
+                                item.innerHTML = '<span class="expando">(' + node.count + ') ' + part_name + '</span>';
+                                item.classList.toggle('collapsed');
                             }
-                            if (part_name) {
-                                let item = document.createElement('li');
-                                if (count === 0) {
-                                    //let url = 'https://' + parts.slice(1).join('/');
-                                    if (parts[1] == 'admiralcloudberg.medium.com') {
-                                        console.log(parts);
-                                        console.log(children);
-                                        console.log(part_name);
-                                    }
-                                    let url = 'https://' + [...parts.slice(1), ...[part_name]].join('/');
-                                    item.innerHTML = '<a href="' + url + '">' + url + '</a>';
-                                } else {
-                                    item.innerHTML = '<span class="expando">(' + count + ') ' + part_name + '</span>';
-                                }
-                                item.append(sublist)
-                                parent.append(item)
+                            let sublist = document.createElement('ul');
+                            for (const child of node.children) {
+                                add_children(sublist, url_prefix + '/' + part_name, child);
                             }
-                        }
+                            item.append(sublist);
+                            dom_parent.append(item);
+                        };
 
                         let urls_elem = document.getElementById(data['status'] + '-urls');
                         let count_elem = document.getElementById(data['status'] + '-count');
-                        count_elem.innerHTML = data['trie'][0];
+                        count_elem.innerHTML = data['count'];
                         urls_elem.innerHTML = '';
-                        add_children(urls_elem, [], data['trie']);
+                        for (const child of data['trie']) {
+                            add_children(urls_elem, '', child);
+                        }
                         for (const elem of urls_elem.getElementsByClassName('expando')) {
                             elem.addEventListener('click', (event) => {
                                 let list_item = event.target.parentElement;
