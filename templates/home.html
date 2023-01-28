@@ -35,8 +35,7 @@
             };
 
             function update_urls() {
-                for (const url_status of ['rejected', 'unsorted', 'accepted', 'conflict']) {
-                //for (const url_status of ['accepted']) {
+                for (const url_status of ['rejected', 'unsorted', 'accepted']) {
                     fetch('/api/get-urls/' + url_status)
                     .then((response) => response.json())
                     .then((data) => {
@@ -120,9 +119,6 @@
                 </ul>
             </div>
             <div class="url-column">
-                <h2>Conflicted URLs (<span id="conflict-count"></span>)</h2>
-                <ul id="conflict-urls">
-                </ul>
                 <h2>Unsorted URLs (<span id="unsorted-count"></span>)</h2>
                 <ul id="unsorted-urls">
                 </ul>
