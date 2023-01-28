@@ -56,7 +56,11 @@ class URL:
         self.scheme, self.netloc, self.path, *_ = parts
         if parts.port:
             self.netloc = self.netloc[:-len(str(parts.port)) - 1]
-        self.domain = '.'.join(self.netloc.split('.')[-2:])
+        subdomains = self.netloc.split('.')
+        if subdomains[-1] in ('uk', 'au'):
+            self.domain = '.'.join(subdomains[-3:])
+        else:
+            self.domain = '.'.join(subdomains[-2:])
         self.url = f'{self.scheme}://{self.netloc}{self.path}'
 
     def __eq__(self, other):
