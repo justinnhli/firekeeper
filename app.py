@@ -41,6 +41,18 @@ RULES = read_rules()
 URLS = read_urls()
 
 
+def create_rule_from_request(form):
+    preempt = (form['preempt'] == 'true')
+    if preempt:
+        preempt_str = '!'
+    else:
+        preempt_str = ''
+    scheme_pattern = form['scheme'].strip()
+    netloc_pattern = form['netloc'].strip()
+    path_pattern = form['path'].strip()
+    return Rule(f'{preempt_str}{scheme_pattern}//{netloc_pattern}/{path_pattern}')
+
+
 def urls_to_trie(urls):
 
     def recursive_sort(nodes):
@@ -75,21 +87,13 @@ def home():
 @app.route('/api/add-rule', methods=['POST'])
 def add_rule():
     accept_rule = (request.form['rule_type'] == 'accept')
-    preempt = (request.form['preempt'] == 'true')
-    if preempt:
-        preempt_str = '!'
-    else:
-        preempt_str = ''
-    scheme_pattern = request.form['scheme'].strip()
-    netloc_pattern = request.form['netloc'].strip()
-    path_pattern = request.form['path'].strip()
-    rule = Rule(f'{preempt_str}{scheme_pattern}//{netloc_pattern}/{path_pattern}')
+    new_rule = create_rule_from_request(request.form)
     if accept_rule:
-        new_rules = {ACCEPTED: [rule,],}
-        RULES[ACCEPTED].append(rule)
+        new_rules = {ACCEPTED: [new_rule,],}
+        RULES[ACCEPTED].append(new_rule)
     else:
-        new_rules = {REJECTED: [rule,],}
-        RULES[REJECTED].append(rule)
+        new_rules = {REJECTED: [new_rule,],}
+        RULES[REJECTED].append(new_rule)
     write_rules(RULES)
     '''
     process_urls(URLS)
