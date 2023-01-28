@@ -46,7 +46,7 @@ def home():
     return render_template('home.html')
 
 
-@app.route('/add-rule', methods=['POST'])
+@app.route('/api/add-rule', methods=['POST'])
 def add_rule():
     accept_rule = (request.form['rule_type'] == 'accept')
     preempt = (request.form['preempt'] == 'true')
@@ -76,7 +76,7 @@ def add_rule():
     return jsonify(success=True)
 
 
-@app.route('/urls/<status>')
+@app.route('/api/get-urls/<status>')
 def get_urls(status):
     if status == 'rejected':
         urls = sorted(URLS[REJECTED])
