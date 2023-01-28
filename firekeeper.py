@@ -301,17 +301,16 @@ def process_url(url, rules):
 def do_reset(cache):
     # type: (Cache) -> None
     # reset the entire cache
-    cache = {
-        REJECTED: set(),
-        UNSORTED: set().union(
-            cache[REJECTED],
-            cache[UNSORTED],
-            cache[ACCEPTED],
-            cache[ARCHIVED],
-        ),
-        ACCEPTED: set(),
-        ARCHIVED: set(),
-    }
+    cache.clear()
+    cache[REJECTED] = set()
+    cache[UNSORTED] = set().union(
+        cache[REJECTED],
+        cache[UNSORTED],
+        cache[ACCEPTED],
+        cache[ARCHIVED],
+    )
+    cache[ACCEPTED] = set()
+    cache[ARCHIVED] = set()
     # re-sort all urls
     process_urls(cache)
     # check for urls that have been archived
