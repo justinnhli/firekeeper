@@ -1,135 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
-    <head>
-        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
-        <title>History Sorter</title>
-        <meta name="viewport" content="max-width=device-max-width, initial-scale=1.0">
-        <style>
-            .url-column {float:left; width:33.33%; overflow:hidden;}
-            .url-column ul {white-space:nowrap; padding-left:1em;}
-            .url-column li.expanded {list-style-type: "\25BE\20";}
-            .url-column li.collapsed {list-style-type: "\25B8\20";}
-            .url-column li.collapsed ul {display:none;}
-            .url-column li.link {list-style-type: "\25AA\20";}
-            .url-column span.expando:hover {cursor:pointer; text-decoration:underline;}
-        </style>
-        <script>
-            function add_rule(rule_type) {
-                let preempt = document.getElementById('preempt');
-                let scheme = document.getElementById('scheme');
-                let netloc = document.getElementById('netloc');
-                let path = document.getElementById('path');
-                let data = {
-                    'preempt': preempt.checked,
-                    'scheme': scheme.value,
-                    'netloc': netloc.value,
-                    'path': path.value,
-                    'rule_type': rule_type,
-                };
-                preempt.checked = false;
-                scheme.value = '';
-                netloc.value = '';
-                path.value = '';
-                let xhr = new XMLHttpRequest();
-                xhr.open('POST', '/api/add-rule');
-                xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
-                xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-                xhr.send(Object.keys(data).map(
-                    function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]) }
-                ).join('&'));
-                //update_urls(); // FIXME
+
+<head>
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+    <title>History Sorter</title>
+    <meta name="viewport" content="max-width=device-max-width, initial-scale=1.0">
+    <style>
+        .url-column {float:left; width:33.33%; overflow:hidden;}
+        .url-column ul {white-space:nowrap; padding-left:1em;}
+        .url-column li.expanded {list-style-type: "\25BE\20";}
+        .url-column li.collapsed {list-style-type: "\25B8\20";}
+        .url-column li.collapsed ul {display:none;}
+        .url-column li.link {list-style-type: "\25AA\20";}
+        .url-column span.expando:hover {cursor:pointer; text-decoration:underline;}
+    </style>
+    <script>
+        function add_rule(rule_type) {
+            let preempt = document.getElementById('preempt');
+            let scheme = document.getElementById('scheme');
+            let netloc = document.getElementById('netloc');
+            let path = document.getElementById('path');
+            let data = {
+                'preempt': preempt.checked,
+                'scheme': scheme.value,
+                'netloc': netloc.value,
+                'path': path.value,
+                'rule_type': rule_type,
             };
+            preempt.checked = false;
+            scheme.value = '';
+            netloc.value = '';
+            path.value = '';
+            let xhr = new XMLHttpRequest();
+            xhr.open('POST', '/api/add-rule');
+            xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+            xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+            xhr.send(Object.keys(data).map(
+                function(k){ return encodeURIComponent(k) + '=' + encodeURIComponent(data[k]) }
+            ).join('&'));
+            //update_urls(); // FIXME
+        };
 
-            function update_urls() {
-                for (const url_status of ['rejected', 'unsorted', 'accepted']) {
-                    fetch('/api/get-urls/' + url_status)
-                    .then((response) => response.json())
-                    .then((data) => {
+        function update_urls() {
+            for (const url_status of ['rejected', 'unsorted', 'accepted']) {
+                fetch('/api/get-urls/' + url_status)
+                .then((response) => response.json())
+                .then((data) => {
 
-                        function add_children(dom_parent, url_prefix, node) {
-                            let part_name = node.part;
-                            while (node.children.length === 1 && node.children[0].count === node.count) {
-                                node = node.children[0];
-                                part_name += '/' + node.part;
-                            }
-                            let item = document.createElement('li');
-                            if (node.count === 1) {
-                                let url = url_prefix + '/' + part_name;
-                                url = 'https://' + url.substring(url.indexOf('/', 1) + 1);
-                                item.innerHTML = '<a href="' + url + '">' + url + '</a>';
-                                item.classList.toggle('link');
-                            } else {
-                                item.innerHTML = '<span class="expando">(' + node.count + ') ' + part_name + '</span>';
-                                item.classList.toggle('collapsed');
-                            }
-                            let sublist = document.createElement('ul');
-                            for (const child of node.children) {
-                                add_children(sublist, url_prefix + '/' + part_name, child);
-                            }
-                            item.append(sublist);
-                            dom_parent.append(item);
-                        };
-
-                        let urls_elem = document.getElementById(data['status'] + '-urls');
-                        let count_elem = document.getElementById(data['status'] + '-count');
-                        count_elem.innerHTML = data['count'];
-                        urls_elem.innerHTML = '';
-                        for (const child of data['trie']) {
-                            add_children(urls_elem, '', child);
+                    function add_children(dom_parent, url_prefix, node) {
+                        let part_name = node.part;
+                        while (node.children.length === 1 && node.children[0].count === node.count) {
+                            node = node.children[0];
+                            part_name += '/' + node.part;
                         }
-                        for (const elem of urls_elem.getElementsByClassName('expando')) {
-                            elem.addEventListener('click', (event) => {
-                                let list_item = event.target.parentElement;
-                                let hidden = list_item.classList.contains('collapsed');
-                                for (const child of list_item.children) {
-                                    if (child.tagName !== 'UL') {
-                                        continue;
-                                    }
-                                    if (hidden) {
-                                        child.style.display = 'block';
-                                    } else {
-                                        child.style.display = 'none';
-                                    }
+                        let item = document.createElement('li');
+                        if (node.count === 1) {
+                            let url = url_prefix + '/' + part_name;
+                            url = 'https://' + url.substring(url.indexOf('/', 1) + 1);
+                            item.innerHTML = '<a href="' + url + '">' + url + '</a>';
+                            item.classList.toggle('link');
+                        } else {
+                            item.innerHTML = '<span class="expando">(' + node.count + ') ' + part_name + '</span>';
+                            item.classList.toggle('collapsed');
+                        }
+                        let sublist = document.createElement('ul');
+                        for (const child of node.children) {
+                            add_children(sublist, url_prefix + '/' + part_name, child);
+                        }
+                        item.append(sublist);
+                        dom_parent.append(item);
+                    };
+
+                    let urls_elem = document.getElementById(data['status'] + '-urls');
+                    let count_elem = document.getElementById(data['status'] + '-count');
+                    count_elem.innerHTML = data['count'];
+                    urls_elem.innerHTML = '';
+                    for (const child of data['trie']) {
+                        add_children(urls_elem, '', child);
+                    }
+                    for (const elem of urls_elem.getElementsByClassName('expando')) {
+                        elem.addEventListener('click', (event) => {
+                            let list_item = event.target.parentElement;
+                            let hidden = list_item.classList.contains('collapsed');
+                            for (const child of list_item.children) {
+                                if (child.tagName !== 'UL') {
+                                    continue;
                                 }
-                                list_item.classList.toggle('expanded');
-                                list_item.classList.toggle('collapsed');
-                            });
-                        }
-                    });
-                }
-            };
-        </script>
-    </head>
+                                if (hidden) {
+                                    child.style.display = 'block';
+                                } else {
+                                    child.style.display = 'none';
+                                }
+                            }
+                            list_item.classList.toggle('expanded');
+                            list_item.classList.toggle('collapsed');
+                        });
+                    }
 
-    <body>
-        <div id="new-rule">
-            <button onclick="add_rule('reject');">Reject</button>
-            <input id="preempt" name="preempt" type="checkbox"><label for="preempt">Preempt</label>
-            <input id="scheme" type="text"></input>://<input id="netloc" type="text"></input>/<input id="path" type="text"></input>
-            <button onclick="add_rule('accept');">Accept</button>
-        </div>
-        <div id="rules">
-        </div>
-        <div id="urls">
-            <div class="url-column">
-                <h2>Rejected URLs (<span id="rejected-count"></span>)</h2>
-                <ul id="rejected-urls">
-                </ul>
-            </div>
-            <div class="url-column">
-                <h2>Unsorted URLs (<span id="unsorted-count"></span>)</h2>
-                <ul id="unsorted-urls">
-                </ul>
-            </div>
-            <div class="url-column">
-                <h2>Accepted URLs (<span id="accepted-count"></span>)</h2>
-                <ul id="accepted-urls">
-                </ul>
-            </div>
-        </div>
-        <script>
-            update_urls();
-        </script>
-    </body>
+                });
+            }
+        };
+    </script>
+</head>
 
+<body>
+
+<div id="new-rule">
+    <button onclick="add_rule('reject');">Reject</button>
+    <input id="preempt" name="preempt" type="checkbox"><label for="preempt">Preempt</label>
+    <input id="scheme" type="text"></input>://<input id="netloc" type="text"></input>/<input id="path" type="text"></input>
+    <button onclick="add_rule('accept');">Accept</button>
+</div>
+<div id="rules">
+</div>
+<div id="urls">
+    <div class="url-column">
+        <h2>Rejected URLs (<span id="rejected-count"></span>)</h2>
+        <ul id="rejected-urls">
+        </ul>
+    </div>
+    <div class="url-column">
+        <h2>Unsorted URLs (<span id="unsorted-count"></span>)</h2>
+        <ul id="unsorted-urls">
+        </ul>
+    </div>
+    <div class="url-column">
+        <h2>Accepted URLs (<span id="accepted-count"></span>)</h2>
+        <ul id="accepted-urls">
+        </ul>
+    </div>
+</div>
+<script>
+    update_urls();
+</script>
+
+</body>
 </html>
