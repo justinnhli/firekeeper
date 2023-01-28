@@ -83,18 +83,19 @@
                         for (const elem of urls_elem.getElementsByClassName('expando')) {
                             elem.addEventListener('click', (event) => {
                                 let list_item = event.target.parentElement;
-                                let hide = list_item.classList.contains('showing');
+                                let hidden = list_item.classList.contains('collapsed');
                                 for (const child of list_item.children) {
                                     if (child.tagName !== 'UL') {
                                         continue;
                                     }
-                                    if (hide) {
-                                        child.style.display = 'none';
-                                    } else {
+                                    if (hidden) {
                                         child.style.display = 'block';
+                                    } else {
+                                        child.style.display = 'none';
                                     }
                                 }
-                                list_item.classList.toggle('showing');
+                                list_item.classList.toggle('expanded');
+                                list_item.classList.toggle('collapsed');
                             });
                         }
                       });
