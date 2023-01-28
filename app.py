@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 
-from urllib.parse import urlsplit
-
-from firekeeper import Status, REJECTED, UNSORTED, ACCEPTED, ARCHIVED
+from firekeeper import REJECTED, UNSORTED, ACCEPTED, ARCHIVED
 from firekeeper import Rule, read_urls, read_rules, write_urls, write_rules, process_urls
 
 try:
