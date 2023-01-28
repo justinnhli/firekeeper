@@ -326,7 +326,10 @@ def do_reset(cache):
     archive_files = set(ARCHIVE_PATH.glob('**/*.html'))
     for archive_file in archive_files - used_archive_files:
         archive_file.unlink()
-        # FIXME deal with now-empty directories
+        archive_dir = archive_file.parent
+        while not any(archive_dir.iterdir()):
+            archive_dir.rmdir()
+            archive_dir = archive_dir.parent
     # update the cache file
     write_urls(cache)
 
