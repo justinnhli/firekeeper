@@ -63,7 +63,7 @@ class URL:
         # type: (Any) -> bool
         return self.url == other.url
 
-    def __le__(self, other):
+    def __lt__(self, other):
         # type: (Any) -> bool
         return self.url < other.url
 
