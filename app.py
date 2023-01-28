@@ -79,11 +79,11 @@ def add_rule():
 @app.route('/urls/<status>')
 def get_urls(status):
     if status == 'rejected':
-        urls = sorted(URLS['rejected'])
+        urls = sorted(URLS[REJECTED])
     elif status == 'unsorted':
-        urls = sorted(URLS['unsorted'])
+        urls = sorted(URLS[UNSORTED])
     elif status == 'accepted':
-        urls = sorted(URLS['accepted'])
+        urls = sorted(URLS[ACCEPTED] | URLS[ARCHIVED])
     elif status == 'conflict':
         urls = [] # FIXME
     trie = {}
