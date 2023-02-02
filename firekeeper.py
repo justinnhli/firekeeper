@@ -207,6 +207,8 @@ def main():
         nargs='?',
     )
     args = arg_parser.parse_args()
+    if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
+        raise FileNotFoundError(ARCHIVE_PATH)
     cache = read_urls()
     do_status(cache)
     if args.action == 'reset':
