@@ -21,6 +21,8 @@ from urllib.parse import urlsplit
 
 
 ARCHIVE_PATH = Path('~/media/web-archive').expanduser().resolve()
+URLS_FILE = Path('~/Dropbox/personal/logs/urls').expanduser().resolve()
+RULES_FILE = Path(__file__).parent / 'rules'
 
 
 # CLASSES
@@ -157,7 +159,7 @@ RuleBook = dict[Status, list[Rule]]
 
 def read_urls():
     # type: () -> Cache
-    with open('urls', encoding='utf-8') as fd:
+    with URLS_FILE.open(encoding='utf-8') as fd:
         return {
             status: set(URL(url) for url in urls)
             for status, urls in json_load(fd).items()
@@ -170,13 +172,13 @@ def write_urls(cache):
         status: sorted(str(url) for url in urls)
         for status, urls in cache.items()
     }
-    with open('urls', 'w', encoding='utf-8') as fd:
+    with URLS_FILE.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
 
 
 def read_rules():
     # type: () -> RuleBook
-    with open('rules', encoding='utf-8') as fd:
+    with RULES_FILE.open(encoding='utf-8') as fd:
         return {
             status: [Rule(rule) for rule in rules]
             for status, rules in json_load(fd).items()
@@ -188,7 +190,7 @@ def write_rules(rules):
     json_obj = {REJECTED: [], ACCEPTED: []} # type: dict[Status, list[str]]
     for status, ruleset in rules.items():
         json_obj[status] = sorted(str(rule) for rule in ruleset)
-    with open('rules', 'w', encoding='utf-8') as fd:
+    with RULES_FILE.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
 
 
