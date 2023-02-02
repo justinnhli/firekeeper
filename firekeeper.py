@@ -61,7 +61,7 @@ class URL:
             self.domain = '.'.join(subdomains[-3:])
         else:
             self.domain = '.'.join(subdomains[-2:])
-        self.url = f'{self.scheme}://{self.netloc}{self.path}'
+        self.url = f'https://{self.netloc}{self.path}'
 
     def __eq__(self, other):
         # type: (Any) -> bool
@@ -85,6 +85,14 @@ class URL:
         return (
             ARCHIVE_PATH / f'{self.domain}/{self.netloc}{self.path}'
         ).with_suffix('.html')
+
+    @property
+    def valid(self):
+        # type: () -> bool
+        return bool(
+            self.scheme.startswith('http')
+            and self.netloc
+        )
 
 
 class Rule:
@@ -226,6 +234,7 @@ def add_history_to_cache(cache):
     # type: (Cache) -> None
     # pylint: disable = consider-using-f-string
     new_urls = get_history() - set().union(*cache.values())
+    new_urls = set(url for url in new_urls if url.valid)
     cache[UNSORTED].update(url for url in new_urls)
 
 
