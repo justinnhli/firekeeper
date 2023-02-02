@@ -408,29 +408,8 @@ def archive_url(url):
 def do_lint(cache):
     # type: (Cache) -> None
     rules = read_rules()
-    lint_conflicting_rules(cache, rules)
     lint_verify_archive(cache, rules)
     lint_redundant_rules(cache, rules)
-    # FIXME list conflicting URLs
-
-
-def lint_conflicting_rules(cache, rules):
-    # type: (Cache, RuleBook) -> None
-    for status, urls in cache.items():
-        for url in urls:
-            matches = {}
-            for rule_type, ruleset in rules.items():
-                matching_rules = [rule for rule in ruleset if rule.matches(url)]
-                if matching_rules:
-                    matches[rule_type] = matching_rules
-            if len(matches) > 1:
-                #print(f'URL matches multiple rulesets: {url}')
-                pass
-            if status != 'unsorted' and status not in matches:
-                if status == REJECTED:
-                    print(f'URL status does not correspond with matched rules: {url}')
-                elif status in [ACCEPTED, ARCHIVED]:
-                    print(f'URL status does not correspond with matched rules: {url}')
 
 
 def lint_verify_archive(cache, _):
