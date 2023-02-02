@@ -305,14 +305,15 @@ def process_url(url, rules):
 def do_reset(cache):
     # type: (Cache) -> None
     # reset the entire cache
-    cache.clear()
-    cache[REJECTED] = set()
-    cache[UNSORTED] = set().union(
+    urls = set().union(
         cache[REJECTED],
         cache[UNSORTED],
         cache[ACCEPTED],
         cache[ARCHIVED],
     )
+    cache.clear()
+    cache[REJECTED] = set()
+    cache[UNSORTED] = set(url for url in urls if url.valid)
     cache[ACCEPTED] = set()
     cache[ARCHIVED] = set()
     # re-sort all urls
