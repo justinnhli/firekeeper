@@ -214,7 +214,7 @@ def main():
     elif args.action == 'import':
         do_import(cache)
     elif args.action == 'archive':
-        do_archive(cache, limit=5)
+        do_archive(cache)
     elif args.action == 'lint':
         do_lint(cache)
     if args.action != 'status':
