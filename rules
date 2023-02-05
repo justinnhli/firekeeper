@@ -70,7 +70,7 @@
         "//wiktionary.org/",
         "//wolframalpha.com/input",
         "//youtube.com/",
-        "//zoom.us/",
+        "//zoom.us/"
     ],
     "accepted": [
         "///(.*/)?[0-9]{2}/[0-9]{2}/",
