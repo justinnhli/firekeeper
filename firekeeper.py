@@ -208,6 +208,7 @@ def main():
         choices=['import', 'reset', 'status', 'archive', 'lint'],
         default='status',
         nargs='?',
+        help='action to perform (default: %(default)s)',
     )
     args = arg_parser.parse_args()
     if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
