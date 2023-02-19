@@ -23,6 +23,7 @@ from urllib.parse import urlsplit
 ARCHIVE_PATH = Path('~/media/web-archive').expanduser().resolve()
 URLS_FILE = Path('~/Dropbox/personal/logs/urls').expanduser().resolve()
 RULES_FILE = Path(__file__).parent / 'rules'
+URLS_LOCK_FILE = URLS_FILE.with_suffix('.lock')
 
 
 # CLASSES
@@ -200,6 +201,7 @@ def write_rules(rules):
 
 def main():
     # type: () -> None
+    modifying_actions = set(['reset', 'import', 'archive'])
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
         'action',
@@ -210,6 +212,11 @@ def main():
     args = arg_parser.parse_args()
     if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
         raise FileNotFoundError(ARCHIVE_PATH)
+    if args.action in modifying_actions:
+        if URLS_LOCK_FILE.exists():
+            raise RuntimeError(f'lock file exists: {URLS_LOCK_FILE}')
+        else:
+            URLS_LOCK_FILE.touch()
     cache = read_urls()
     do_status(cache)
     if args.action == 'reset':
@@ -222,6 +229,8 @@ def main():
         do_lint(cache)
     if args.action != 'status':
         do_status(cache)
+    if args.action in modifying_actions:
+        URLS_LOCK_FILE.unlink()
 
 
 # IMPORT
