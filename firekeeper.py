@@ -159,22 +159,22 @@ Cache = dict[Status, set[URL]]
 RuleBook = dict[Status, list[Rule]]
 
 
-def read_urls():
-    # type: () -> Cache
-    with URLS_FILE.open(encoding='utf-8') as fd:
+def read_urls(path=URLS_FILE):
+    # type: (Path) -> Cache
+    with path.open(encoding='utf-8') as fd:
         return {
             status: set(URL(url) for url in urls)
             for status, urls in json_load(fd).items()
         }
 
 
-def write_urls(cache):
-    # type: (Cache) -> None
+def write_urls(cache, path=URLS_FILE):
+    # type: (Cache, Path) -> None
     json_obj = {
         status: sorted(str(url) for url in urls)
         for status, urls in cache.items()
     }
-    with URLS_FILE.open('w', encoding='utf-8') as fd:
+    with path.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
 
 
