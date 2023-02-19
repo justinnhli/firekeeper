@@ -216,8 +216,7 @@ def main():
     if args.action in modifying_actions:
         if URLS_LOCK_FILE.exists():
             raise RuntimeError(f'lock file exists: {URLS_LOCK_FILE}')
-        else:
-            URLS_LOCK_FILE.touch()
+        URLS_LOCK_FILE.touch()
     cache = read_urls()
     do_status(cache)
     if args.action == 'reset':
@@ -250,7 +249,7 @@ def add_history_to_cache(cache):
     # pylint: disable = consider-using-f-string
     new_urls = get_history() - set().union(*cache.values())
     new_urls = set(url for url in new_urls if url.valid)
-    cache[UNSORTED].update(url for url in new_urls)
+    cache[UNSORTED].update(new_urls)
 
 
 def get_history(profile=None):
