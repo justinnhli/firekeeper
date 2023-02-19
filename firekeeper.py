@@ -54,7 +54,7 @@ class URL:
 
     def __init__(self, url):
         # type: (str) -> None
-        parts = urlsplit(url.strip('/'))
+        parts = urlsplit(url)
         self.scheme, self.netloc, self.path, *_ = parts
         if parts.port:
             self.netloc = self.netloc[:-len(str(parts.port)) - 1]
@@ -63,6 +63,7 @@ class URL:
             self.domain = '.'.join(subdomains[-3:])
         else:
             self.domain = '.'.join(subdomains[-2:])
+        self.path = self.path.rstrip('/')
         self.url = f'https://{self.netloc}{self.path}'
 
     def __eq__(self, other):
