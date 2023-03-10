@@ -73,7 +73,7 @@ class URL:
 
     def __lt__(self, other):
         # type: (Any) -> bool
-        return self.url < other.url
+        return self.sort_key < other.sort_key
 
     def __hash__(self):
         # type: () -> int
@@ -82,6 +82,11 @@ class URL:
     def __str__(self):
         # type: () -> str
         return str(self.url)
+
+    @property
+    def sort_key(self):
+        # type: () -> tuple[str, str, str]
+        return (self.domain, self.netloc, self.path)
 
     @property
     def archive_path(self):
@@ -119,6 +124,10 @@ class Rule:
         # type: (Any) -> bool
         return self.rule_string == other.rule_string
 
+    def __lt__(self, other):
+        # type: (Any) -> bool
+        return self.sort_key < other.sort_key
+
     def __hash__(self):
         # type: () -> int
         return hash(self.rule_string)
@@ -146,6 +155,15 @@ class Rule:
         # type: () -> str
         return f'Rule("{self.rule_string}")'
 
+    @property
+    def sort_key(self):
+        # type: () -> tuple[bool, str, str]
+        return (
+            not self.preempt,
+            self.netloc_regex.pattern,
+            self.path_regex.pattern,
+        )
+
     def matches(self, url):
         # type: (URL) -> bool
         return bool(
@@ -171,7 +189,7 @@ def read_urls(path=URLS_FILE):
 def write_urls(cache, path=URLS_FILE):
     # type: (Cache, Path) -> None
     json_obj = {
-        status: sorted(str(url) for url in urls)
+        status: [str(url) for url in sorted(urls)]
         for status, urls in cache.items()
     }
     with path.open('w', encoding='utf-8') as fd:
@@ -191,7 +209,7 @@ def write_rules(rules):
     # type: (RuleBook) -> None
     json_obj = {REJECTED: [], ACCEPTED: []} # type: dict[Status, list[str]]
     for status, ruleset in rules.items():
-        json_obj[status] = sorted(str(rule) for rule in ruleset)
+        json_obj[status] = [str(rule) for rule in sorted(ruleset)]
     with RULES_FILE.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
 
