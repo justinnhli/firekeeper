@@ -32,6 +32,7 @@ URLS_LOCK_FILE = URLS_FILE.with_suffix('.lock')
 class StatusTemp(Enum):
     # FIXME should use StrEnum from Python 3.11 instead
     # which allows for {'accepted': True}[Status.ACCEPTED]
+    EXPUNGED = 'expunged'
     REJECTED = 'rejected'
     UNSORTED = 'unsorted'
     ACCEPTED = 'accepted'
@@ -45,6 +46,7 @@ class Status(str):
     pass
 
 
+EXPUNGED = Status('expunged')
 REJECTED = Status('rejected')
 UNSORTED = Status('unsorted')
 ACCEPTED = Status('accepted')
@@ -199,16 +201,25 @@ def write_urls(cache, path=URLS_FILE):
 def read_rules():
     # type: () -> RuleBook
     with RULES_FILE.open(encoding='utf-8') as fd:
-        return {
+        rules = {
             status: [Rule(rule) for rule in rules]
             for status, rules in json_load(fd).items()
         }
+    rules[REJECTED].extend(rules[EXPUNGED])
+    return rules
 
 
 def write_rules(rules):
     # type: (RuleBook) -> None
-    json_obj = {REJECTED: [], ACCEPTED: []} # type: dict[Status, list[str]]
+    json_obj = {
+        EXPUNGED: [],
+        REJECTED: [],
+        ACCEPTED: [],
+    } # type: dict[Status, list[str]]
+    expunged = set(rules[EXPUNGED])
     for status, ruleset in rules.items():
+        if status == REJECTED:
+            ruleset = [rule for rule in ruleset if rule not in expunged]
         json_obj[status] = [str(rule) for rule in sorted(ruleset)]
     with RULES_FILE.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
@@ -267,7 +278,11 @@ def add_history_to_cache(cache):
     # pylint: disable = consider-using-f-string
     new_urls = get_history() - set().union(*cache.values())
     new_urls = set(url for url in new_urls if url.valid)
-    cache[UNSORTED].update(new_urls)
+    rules = read_rules()
+    cache[UNSORTED].update(
+        url for url in new_urls
+        if not any(rule.matches(url) for rule in rules[EXPUNGED])
+    )
 
 
 def get_history(profile=None):
