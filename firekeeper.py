@@ -196,6 +196,7 @@ def write_urls(cache, path=URLS_FILE):
     }
     with path.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
+        fd.write('\n')
 
 
 def read_rules():
@@ -223,6 +224,7 @@ def write_rules(rules):
         json_obj[status] = [str(rule) for rule in sorted(ruleset)]
     with RULES_FILE.open('w', encoding='utf-8') as fd:
         fd.write(json_to_str(json_obj, indent=4))
+        fd.write('\n')
 
 
 # MAIN
