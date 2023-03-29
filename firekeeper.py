@@ -449,6 +449,16 @@ def archive_url(url):
         str(url),
     ]
     run_subprocess(command, check=False)
+    # reduce file size
+    with archive_path.open() as fd:
+        html = fd.read()
+    html = re.sub('<script.*?</script>', '', html, flags=re.DOTALL)
+    html = re.sub('"data:[^"]*"', '""', html)
+    html = re.sub(r'^\s*', '', html, flags=re.MULTILINE)
+    html = re.sub(r'\s*$', '', html, flags=re.MULTILINE)
+    html = re.sub('\n+', '\n', html)
+    with archive_path.open() as fd:
+        fd.write(html)
 
 
 # LINT
