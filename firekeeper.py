@@ -16,7 +16,7 @@ from shutil import copyfile
 from subprocess import run as run_subprocess
 from tempfile import TemporaryDirectory
 from time import sleep
-from typing import Any, Optional
+from typing import Any, Optional, Iterable
 from urllib.parse import urlsplit
 
 
@@ -175,135 +175,6 @@ class Rule:
         )
 
 
-Cache = dict[Status, set[URL]]
-RuleBook = dict[Status, list[Rule]]
-
-
-def read_urls(path=URLS_FILE):
-    # type: (Path) -> Cache
-    with path.open(encoding='utf-8') as fd:
-        return {
-            status: set(URL(url) for url in urls)
-            for status, urls in json_load(fd).items()
-        }
-
-
-def write_urls(cache, path=URLS_FILE):
-    # type: (Cache, Path) -> None
-    json_obj = {
-        status: [str(url) for url in sorted(urls)]
-        for status, urls in cache.items()
-    }
-    with path.open('w', encoding='utf-8') as fd:
-        fd.write(json_to_str(json_obj, indent=4))
-        fd.write('\n')
-
-
-def read_rules():
-    # type: () -> RuleBook
-    with RULES_FILE.open(encoding='utf-8') as fd:
-        rules = {
-            status: [Rule(rule) for rule in rules]
-            for status, rules in json_load(fd).items()
-        }
-    rules[REJECTED].extend(rules[EXPUNGED])
-    return rules
-
-
-def write_rules(rules):
-    # type: (RuleBook) -> None
-    json_obj = {
-        EXPUNGED: [],
-        REJECTED: [],
-        ACCEPTED: [],
-    } # type: dict[Status, list[str]]
-    expunged = set(rules[EXPUNGED])
-    for status, ruleset in rules.items():
-        if status == REJECTED:
-            ruleset = [rule for rule in ruleset if rule not in expunged]
-        json_obj[status] = [str(rule) for rule in sorted(ruleset)]
-    with RULES_FILE.open('w', encoding='utf-8') as fd:
-        fd.write(json_to_str(json_obj, indent=4))
-        fd.write('\n')
-
-
-# MAIN
-
-
-def main():
-    # type: () -> None
-    modifying_actions = set(['reset', 'import', 'archive'])
-    arg_parser = ArgumentParser()
-    arg_parser.add_argument(
-        'action',
-        choices=['import', 'reset', 'status', 'archive', 'lint'],
-        default='status',
-        nargs='?',
-        help='action to perform (default: %(default)s)',
-    )
-    args = arg_parser.parse_args()
-    if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
-        raise FileNotFoundError(ARCHIVE_PATH)
-    if args.action in modifying_actions:
-        if URLS_LOCK_FILE.exists():
-            raise RuntimeError(f'lock file exists: {URLS_LOCK_FILE}')
-        URLS_LOCK_FILE.touch()
-    cache = read_urls()
-    do_status(cache)
-    if args.action == 'reset':
-        do_reset(cache)
-    elif args.action == 'import':
-        do_import(cache)
-    elif args.action == 'archive':
-        do_archive(cache)
-    elif args.action == 'lint':
-        do_lint(cache)
-    if args.action != 'status':
-        do_status(cache)
-    if args.action in modifying_actions:
-        URLS_LOCK_FILE.unlink()
-
-
-# IMPORT
-
-
-def do_import(cache):
-    # type: (Cache) -> None
-    add_history_to_cache(cache)
-    write_urls(cache)
-    process_urls(cache)
-    write_urls(cache)
-
-
-def add_history_to_cache(cache):
-    # type: (Cache) -> None
-    # pylint: disable = consider-using-f-string
-    new_urls = get_history() - set().union(*cache.values())
-    new_urls = set(url for url in new_urls if url.valid)
-    rules = read_rules()
-    cache[UNSORTED].update(
-        url for url in new_urls
-        if not any(rule.matches(url) for rule in rules[EXPUNGED])
-    )
-
-
-def get_history(profile=None):
-    # type: (Optional[Path]) -> set[URL]
-    if profile is None:
-        profile = get_profile()
-    db_path = get_places_db(profile)
-    # make a copy of the database to avoid locks
-    urls = set()
-    with TemporaryDirectory() as temp_dir:
-        temp_db = Path(temp_dir) / 'temp.sqlite'
-        copyfile(db_path, temp_db)
-        con = sqlite3.connect(temp_db)
-        cur = con.cursor()
-        for row, in cur.execute('SELECT DISTINCT url FROM moz_places'):
-            urls.add(URL(row))
-    return urls
-
-
 def get_profile():
     # type: () -> Path
     if system() == 'Linux':
@@ -326,112 +197,21 @@ def get_places_db(profile):
     return db_path
 
 
-def process_urls(cache, rules=None, from_status=UNSORTED):
-    # type: (Cache, Optional[RuleBook], Status) -> None
-    if rules is None:
-        rules = read_rules()
-    for url in list(cache[from_status]):
-        status = process_url(url, rules)
-        if status == ACCEPTED:
-            cache[from_status].discard(url)
-            cache[ACCEPTED].add(url)
-        elif status == REJECTED:
-            cache[from_status].discard(url)
-            cache[REJECTED].add(url)
-
-
-def process_url(url, rules):
-    # type: (URL, RuleBook) -> Status
-    rejected = False
-    for rule in rules.get(REJECTED, []):
-        if rule.matches(url):
-            if rule.preempt:
-                return REJECTED
-            rejected = True
-    for rule in rules.get(ACCEPTED, []):
-        if rule.matches(url):
-            return ACCEPTED
-    if rejected:
-        return REJECTED
-    else:
-        return UNSORTED
-
-
-# RESET
-
-
-def do_reset(cache):
-    # type: (Cache) -> None
-    # reset the entire cache
-    urls = set().union(
-        cache[REJECTED],
-        cache[UNSORTED],
-        cache[ACCEPTED],
-        cache[ARCHIVED],
-    )
-    cache.clear()
-    cache[REJECTED] = set()
-    cache[UNSORTED] = set(url for url in urls if url.valid)
-    cache[ACCEPTED] = set()
-    cache[ARCHIVED] = set()
-    # re-sort all urls
-    process_urls(cache)
-    # check for urls that have been archived
-    used_archive_files = set()
-    for url in list(cache[ACCEPTED]):
-        archive_path = url.archive_path
-        if archive_path.is_file():
-            used_archive_files.add(archive_path)
-            cache[ACCEPTED].discard(url)
-            cache[ARCHIVED].add(url)
-    # delete archived files that are not in the cache
-    archive_files = set(ARCHIVE_PATH.glob('**/*.html'))
-    for archive_file in archive_files - used_archive_files:
-        archive_file.unlink()
-        archive_dir = archive_file.parent
-        while not any(archive_dir.iterdir()):
-            archive_dir.rmdir()
-            archive_dir = archive_dir.parent
-    # update the cache file
-    write_urls(cache)
-
-
-# STATUS
-
-
-def do_status(cache):
-    # type: (Cache) -> None
-    rejected = len(cache[REJECTED])
-    unsorted = len(cache[UNSORTED])
-    accepted = len(cache[ACCEPTED])
-    archived = len(cache[ARCHIVED])
-    total = rejected + unsorted + accepted + archived
-    print(' '.join([
-        f'{rejected:,d} ({rejected / total:.2%}) <-',
-        f'{unsorted:,d} ({unsorted / total:.2%}) ->',
-        f'{accepted:,d} ({accepted / total:.2%}) ->',
-        f'{archived:,d} ({archived / total:.2%})',
-    ]))
-
-
-# ARCHIVE
-
-
-def do_archive(cache, limit=-1):
-    # type: (Cache, int) -> None
-    urls = list(cache[ACCEPTED])
-    shuffle(urls)
-    if limit > 0:
-        urls = urls[:limit]
-    else:
-        limit = len(urls)
-    for i, url in enumerate(urls, start=1):
-        print(f'{i}/{limit}: {url}')
-        archive_url(url)
-        cache[ACCEPTED].discard(url)
-        cache[ARCHIVED].add(url)
-        sleep(1 + random())
-    write_urls(cache)
+def get_history(profile=None):
+    # type: (Optional[Path]) -> set[URL]
+    if profile is None:
+        profile = get_profile()
+    db_path = get_places_db(profile)
+    # make a copy of the database to avoid locks
+    urls = set()
+    with TemporaryDirectory() as temp_dir:
+        temp_db = Path(temp_dir) / 'temp.sqlite'
+        copyfile(db_path, temp_db)
+        con = sqlite3.connect(temp_db)
+        cur = con.cursor()
+        for row, in cur.execute('SELECT DISTINCT url FROM moz_places'):
+            urls.add(URL(row))
+    return urls
 
 
 def archive_url(url):
@@ -449,6 +229,9 @@ def archive_url(url):
         str(url),
     ]
     run_subprocess(command, check=False)
+    # delete if not HTML
+    # FIXME need to decide how database should be updated
+    # FIXME
     # reduce file size
     with archive_path.open() as fd:
         html = fd.read()
@@ -461,55 +244,270 @@ def archive_url(url):
         fd.write(html)
 
 
-# LINT
+class FireKeeper:
 
+    def __init__(self, urls_path, rules_path, archive_path):
+        # type: (Path, Path, Path) -> None
+        # constants
+        self.urls_path = urls_path
+        self.rules_path = rules_path
+        self.archive_path = archive_path
+        self.lock_path = self.urls_path.with_suffix('.lock')
+        # variables
+        self.urls = {} # type: dict[Status, set[URL]]
+        self.rules = {} # type: dict[Status, list[Rule]]
+        self._init_urls()
+        self._read_urls()
+        self._read_rules()
 
-def do_lint(cache):
-    # type: (Cache) -> None
-    rules = read_rules()
-    lint_verify_archive(cache, rules)
-    lint_redundant_rules(cache, rules)
+    def _init_urls(self):
+        # type: () -> None
+        self.urls = {
+            REJECTED: set(),
+            UNSORTED: set(),
+            ACCEPTED: set(),
+            ARCHIVED: set(),
+        }
 
+    def _read_urls(self):
+        # type: () -> None
+        with self.urls_path.open(encoding='utf-8') as fd:
+            self.urls = {
+                status: set(URL(url) for url in urls)
+                for status, urls in json_load(fd).items()
+            }
 
-def lint_verify_archive(cache, _):
-    # type: (Cache, RuleBook) -> None
-    for url in cache[ARCHIVED]:
-        if not url.archive_path.is_file():
-            print(f'URL archive missing: {url}')
+    def write_urls(self, path=None):
+        # type: (Optional[Path]) -> None
+        if path is None:
+            path = self.urls_path
+        json_obj = {
+            status: [str(url) for url in sorted(urls)]
+            for status, urls in self.urls.items()
+        }
+        with path.open('w', encoding='utf-8') as fd:
+            fd.write(json_to_str(json_obj, indent=4))
+            fd.write('\n')
 
+    def _read_rules(self):
+        # type: () -> None
+        with self.rules_path.open(encoding='utf-8') as fd:
+            self.rules = {
+                status: [Rule(rule) for rule in rules]
+                for status, rules in json_load(fd).items()
+            }
+        self.rules[REJECTED].extend(self.rules[EXPUNGED])
 
-def lint_redundant_rules(cache, rulebook):
-    # type: (Cache, RuleBook) -> None
-    # pylint: disable = too-many-branches
-    rules = [*rulebook[ACCEPTED], *rulebook[REJECTED]]
-    for rule, count in Counter(rules).most_common():
-        if count > 1:
-            print(f'duplicate rule: {rule}')
-        else:
-            break
-    dominating = defaultdict(set)
-    for url in chain(*cache.values()):
-        matched = set()
-        unmatched = set()
-        for rule in rules:
+    def write_rules(self, path=None):
+        # type: (Optional[Path]) -> None
+        if path is None:
+            path = self.rules_path
+        json_obj = {
+            EXPUNGED: [],
+            REJECTED: [],
+            ACCEPTED: [],
+        } # type: dict[Status, list[str]]
+        expunged = set(self.rules[EXPUNGED])
+        for status, ruleset in self.rules.items():
+            if status == REJECTED:
+                ruleset = [rule for rule in ruleset if rule not in expunged]
+            json_obj[status] = [str(rule) for rule in sorted(ruleset)]
+        with path.open('w', encoding='utf-8') as fd:
+            fd.write(json_to_str(json_obj, indent=4))
+            fd.write('\n')
+
+    def _lock(self):
+        # type: () -> None
+        if self.lock_path.exists():
+            raise RuntimeError(f'lock file exists: {self.lock_path}')
+        self.lock_path.touch()
+
+    def _unlock(self):
+        # type: () -> None
+        self.lock_path.unlink(missing_ok=True)
+
+    def _process_urls(self, from_status=UNSORTED):
+        # type: (Status) -> None
+        for url in list(self.urls[from_status]):
+            status = self.classify_url(url)
+            if status == ACCEPTED:
+                self.urls[from_status].discard(url)
+                self.urls[ACCEPTED].add(url)
+            elif status == REJECTED:
+                self.urls[from_status].discard(url)
+                self.urls[REJECTED].add(url)
+
+    def add(self, urls, check_lock=True):
+        # type: (Iterable[URL], bool) -> None
+        if check_lock:
+            self._lock()
+        new_urls = set(urls) - set().union(*self.urls.values())
+        new_urls = set(url for url in new_urls if url.valid)
+        self.urls[UNSORTED].update(
+            url for url in new_urls
+            if not any(rule.matches(url) for rule in self.rules[EXPUNGED])
+        )
+        self.write_urls()
+        self._process_urls()
+        self.write_urls()
+        self._unlock()
+
+    def import_from_firefox(self):
+        # type: () -> None
+        self.add(get_history())
+
+    def classify_url(self, url):
+        # type: (URL) -> Status
+        rejected = False
+        for rule in self.rules.get(REJECTED, []):
             if rule.matches(url):
-                matched.add(rule)
+                if rule.preempt:
+                    return REJECTED
+                rejected = True
+        for rule in self.rules.get(ACCEPTED, []):
+            if rule.matches(url):
+                return ACCEPTED
+        if rejected:
+            return REJECTED
+        else:
+            return UNSORTED
+
+    def archive(self, limit=-1):
+        # type: (int) -> None
+        self._lock()
+        urls = list(self.urls[ACCEPTED])
+        shuffle(urls)
+        if limit > 0:
+            urls = urls[:limit]
+        else:
+            limit = len(urls)
+        for i, url in enumerate(urls, start=1):
+            print(f'{i}/{limit}: {url}')
+            archive_url(url)
+            self.urls[ACCEPTED].discard(url)
+            self.urls[ARCHIVED].add(url)
+            sleep(1 + random())
+        self.write_urls()
+        self._unlock()
+
+    def status(self):
+        # type: () -> None
+        rejected = len(self.urls[REJECTED])
+        unsorted = len(self.urls[UNSORTED])
+        accepted = len(self.urls[ACCEPTED])
+        archived = len(self.urls[ARCHIVED])
+        total = rejected + unsorted + accepted + archived
+        print(' '.join([
+            f'{rejected:,d} ({rejected / total:.2%}) <-',
+            f'{unsorted:,d} ({unsorted / total:.2%}) ->',
+            f'{accepted:,d} ({accepted / total:.2%}) ->',
+            f'{archived:,d} ({archived / total:.2%})',
+        ]))
+
+    def reset(self): # FIXME should rename this function
+        # type: () -> None
+        self._lock()
+        # re-sort all urls
+        urls = set().union(*self.urls.values())
+        self._init_urls()
+        self.add(urls, check_lock=False)
+        # check for urls that have been archived
+        used_archive_files = set()
+        for url in list(self.urls[ACCEPTED]):
+            archive_path = url.archive_path
+            if archive_path.is_file():
+                used_archive_files.add(archive_path)
+                self.urls[ACCEPTED].discard(url)
+                self.urls[ARCHIVED].add(url)
+        # delete archived files that are not in the cache
+        archive_files = set(ARCHIVE_PATH.glob('**/*.html'))
+        for archive_file in archive_files - used_archive_files:
+            archive_file.unlink()
+            archive_dir = archive_file.parent
+            while not any(archive_dir.iterdir()):
+                archive_dir.rmdir()
+                archive_dir = archive_dir.parent
+        # update the cache file
+        self.write_urls()
+        self._unlock()
+
+    def lint(self):
+        # type: () -> None
+        self.lint_verify_archive()
+        self.lint_redundant_rules()
+
+    def lint_verify_archive(self):
+        # type: () -> None
+        for url in self.urls[ARCHIVED]:
+            if not url.archive_path.is_file():
+                print(f'URL archive missing: {url}')
+
+    def lint_redundant_rules(self):
+        # type: () -> None
+        # pylint: disable = too-many-branches
+        rules = [*self.rules[ACCEPTED], *self.rules[REJECTED]]
+        for rule, count in Counter(rules).most_common():
+            if count > 1:
+                print(f'duplicate rule: {rule}')
             else:
-                unmatched.add(rule)
-        for matched_rule, unmatched_rule in product(matched, unmatched):
-            dominating[matched_rule].add(unmatched_rule)
-    unmatched_rules = set(rules) - set(dominating)
-    for rule in unmatched_rules:
-        print(f'rule never matched: {rule}')
-    num_accepted = len(rulebook[ACCEPTED])
-    for rule_subset in [rules[:num_accepted], rules[num_accepted:]]:
-        for supord, subord in permutations(rule_subset, 2):
-            if supord.preempt != subord.preempt:
-                continue
-            if subord in unmatched_rules:
-                continue
-            if subord in dominating[supord] and supord not in dominating[subord]:
-                print(f'redundant rule: {supord} > {subord}')
+                break
+        dominating = defaultdict(set)
+        for url in chain(*self.urls.values()):
+            matched = set()
+            unmatched = set()
+            for rule in rules:
+                if rule.matches(url):
+                    matched.add(rule)
+                else:
+                    unmatched.add(rule)
+            for matched_rule, unmatched_rule in product(matched, unmatched):
+                dominating[matched_rule].add(unmatched_rule)
+        unmatched_rules = set(rules) - set(dominating)
+        for rule in unmatched_rules:
+            print(f'rule never matched: {rule}')
+        num_accepted = len(self.rules[ACCEPTED])
+        for rule_subset in [rules[:num_accepted], rules[num_accepted:]]:
+            for supord, subord in permutations(rule_subset, 2):
+                if supord.preempt != subord.preempt:
+                    continue
+                if subord in unmatched_rules:
+                    continue
+                if subord in dominating[supord] and supord not in dominating[subord]:
+                    print(f'redundant rule: {supord} > {subord}')
+
+
+# MAIN
+
+
+def main():
+    # type: () -> None
+    modifying_actions = set(['reset', 'import', 'archive'])
+    arg_parser = ArgumentParser()
+    arg_parser.add_argument(
+        'action',
+        choices=['import', 'reset', 'status', 'archive', 'lint'],
+        default='status',
+        nargs='?',
+        help='action to perform (default: %(default)s)',
+    )
+    args = arg_parser.parse_args()
+    if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
+        raise FileNotFoundError(ARCHIVE_PATH)
+    if args.action in modifying_actions:
+        if URLS_LOCK_FILE.exists():
+            raise RuntimeError(f'lock file exists: {URLS_LOCK_FILE}')
+    firekeeper = FireKeeper(URLS_FILE, RULES_FILE, ARCHIVE_PATH)
+    firekeeper.status()
+    if args.action == 'reset':
+        firekeeper.reset()
+    elif args.action == 'import':
+        firekeeper.import_from_firefox()
+    elif args.action == 'archive':
+        firekeeper.archive()
+    elif args.action == 'lint':
+        firekeeper.lint()
+    if args.action != 'status':
+        firekeeper.status()
 
 
 if __name__ == '__main__':
