@@ -341,11 +341,14 @@ class FireKeeper:
     def add(self, urls):
         # type: (Iterable[URL]) -> None
         self._lock()
-        new_urls = set(urls) - set().union(*self.urls.values())
-        new_urls = set(url for url in new_urls if url.valid)
+        old_urls = set().union(*self.urls.values())
         self.urls[UNSORTED].update(
-            url for url in new_urls
-            if not any(rule.matches(url) for rule in self.rules[EXPUNGED])
+            url for url in urls
+            if (
+                url.valid
+                and url not in old_urls
+                and not any(rule.matches(url) for rule in self.rules[EXPUNGED])
+            )
         )
         self._process_urls()
         self.write_urls()
