@@ -337,17 +337,16 @@ class FireKeeper:
                 self.urls[from_status].discard(url)
                 self.urls[REJECTED].add(url)
 
-    def add(self, urls, check_lock=True):
-        # type: (Iterable[URL], bool) -> None
-        if check_lock:
-            self._lock()
+
+    def add(self, urls):
+        # type: (Iterable[URL]) -> None
+        self._lock()
         new_urls = set(urls) - set().union(*self.urls.values())
         new_urls = set(url for url in new_urls if url.valid)
         self.urls[UNSORTED].update(
             url for url in new_urls
             if not any(rule.matches(url) for rule in self.rules[EXPUNGED])
         )
-        self.write_urls()
         self._process_urls()
         self.write_urls()
         self._unlock()
@@ -406,12 +405,12 @@ class FireKeeper:
 
     def reset(self): # FIXME should rename this function
         # type: () -> None
-        self._lock()
         # re-sort all urls
         urls = set().union(*self.urls.values())
         self._init_urls()
-        self.add(urls, check_lock=False)
+        self.add(urls)
         # check for urls that have been archived
+        self._lock()
         used_archive_files = set()
         for url in list(self.urls[ACCEPTED]):
             archive_path = url.archive_path
@@ -419,6 +418,8 @@ class FireKeeper:
                 used_archive_files.add(archive_path)
                 self.urls[ACCEPTED].discard(url)
                 self.urls[ARCHIVED].add(url)
+        self.write_urls()
+        self._unlock()
         # delete archived files that are not in the cache
         archive_files = set(ARCHIVE_PATH.glob('**/*.html'))
         for archive_file in archive_files - used_archive_files:
@@ -427,9 +428,6 @@ class FireKeeper:
             while not any(archive_dir.iterdir()):
                 archive_dir.rmdir()
                 archive_dir = archive_dir.parent
-        # update the cache file
-        self.write_urls()
-        self._unlock()
 
     def lint(self):
         # type: () -> None
