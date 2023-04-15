@@ -479,19 +479,24 @@ class FireKeeper:
 # MAIN
 
 
+def workspace(firekeeper):
+    pass
+
+
 def main():
     # type: () -> None
+    archive_actions = set(['reset', 'archive', 'lint'])
     modifying_actions = set(['reset', 'import', 'archive'])
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
         'action',
-        choices=['import', 'reset', 'status', 'archive', 'lint'],
+        choices=['import', 'reset', 'status', 'archive', 'lint', 'workspace'],
         default='status',
         nargs='?',
         help='action to perform (default: %(default)s)',
     )
     args = arg_parser.parse_args()
-    if args.action not in ('status', 'import') and not ARCHIVE_PATH.exists():
+    if args.action in archive_actions and not ARCHIVE_PATH.exists():
         raise FileNotFoundError(ARCHIVE_PATH)
     if args.action in modifying_actions:
         if URLS_LOCK_FILE.exists():
@@ -506,6 +511,8 @@ def main():
         firekeeper.archive()
     elif args.action == 'lint':
         firekeeper.lint()
+    elif args.action == 'workspace':
+        workspace(firekeeper)
     if args.action != 'status':
         firekeeper.status()
 
