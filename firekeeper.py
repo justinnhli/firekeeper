@@ -481,6 +481,8 @@ class FireKeeper:
 
 
 def workspace(firekeeper):
+    # type: (FireKeeper) -> None
+    # pylint: disable = unused-argument
     pass
 
 
