@@ -207,10 +207,12 @@ def get_history(profile=None):
     with TemporaryDirectory() as temp_dir:
         temp_db = Path(temp_dir) / 'temp.sqlite'
         copyfile(db_path, temp_db)
-        con = sqlite3.connect(temp_db)
-        cur = con.cursor()
-        for row, in cur.execute('SELECT DISTINCT url FROM moz_places'):
-            urls.add(URL(row))
+        urls.update(
+            URL(row) for row, in (
+                sqlite3.connect(temp_db).cursor()
+                .execute('SELECT DISTINCT url FROM moz_places')
+            )
+        )
     return urls
 
 
