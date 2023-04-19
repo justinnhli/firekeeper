@@ -231,9 +231,10 @@ def archive_url(url):
         str(url),
     ]
     run_subprocess(command, check=False)
+    # check if the download failed (eg. if the URL does not exist)
+    if not archive_path.exists():
+        return False
     # delete if not HTML
-    # FIXME need to decide how database should be updated
-    # FIXME
     # reduce file size
     with archive_path.open() as fd:
         html = fd.read()
@@ -387,9 +388,11 @@ class FireKeeper:
             limit = len(urls)
         for i, url in enumerate(urls, start=1):
             print(f'{i}/{limit}: {url}')
-            archive_url(url)
-            self.urls[ACCEPTED].discard(url)
-            self.urls[ARCHIVED].add(url)
+            if archive_url(url):
+                self.urls[ACCEPTED].discard(url)
+                self.urls[ARCHIVED].add(url)
+            else:
+                pass # FIXME need to decide how database should be updated
             sleep(1 + random())
         self.write_urls()
         self._unlock()
