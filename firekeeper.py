@@ -240,7 +240,7 @@ def archive_url(url):
     html = re.sub(r'^\s*', '', html, flags=re.MULTILINE)
     html = re.sub(r'\s*$', '', html, flags=re.MULTILINE)
     html = re.sub('\n+', '\n', html)
-    with archive_path.open() as fd:
+    with archive_path.open('w') as fd:
         fd.write(html)
 
 
