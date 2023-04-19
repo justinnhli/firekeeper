@@ -239,8 +239,11 @@ def archive_url(url):
     if 'text' not in process.stdout.decode('utf-8'):
         return False
     # reduce file size
-    with archive_path.open() as fd:
-        html = fd.read()
+    try:
+        with archive_path.open() as fd:
+            html = fd.read()
+    except UnicodeDecodeError:
+        return True
     html = re.sub('<script.*?</script>', '', html, flags=re.DOTALL)
     html = re.sub('"data:[^"]*"', '""', html)
     html = re.sub(r'^\s*', '', html, flags=re.MULTILINE)
