@@ -236,7 +236,7 @@ def archive_url(url):
         return False
     # delete if not HTML
     process = run_subprocess(['file', str(archive_path)], check=True, capture_output=True)
-    if 'text' not in process.stdout.decode('utf-8'):
+    if 'HTML' not in process.stdout.decode('utf-8'):
         return False
     # reduce file size
     try:
