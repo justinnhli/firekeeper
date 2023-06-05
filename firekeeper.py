@@ -217,7 +217,7 @@ def get_history(profile=None):
 
 
 def archive_url(url):
-    # type: (URL) -> None
+    # type: (URL) -> bool
     archive_path = url.archive_path
     archive_path.parent.mkdir(parents=True, exist_ok=True)
     command = [
@@ -251,6 +251,7 @@ def archive_url(url):
     html = re.sub('\n+', '\n', html)
     with archive_path.open('w') as fd:
         fd.write(html)
+    return True
 
 
 class FireKeeper:
