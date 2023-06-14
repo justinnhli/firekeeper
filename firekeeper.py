@@ -203,7 +203,7 @@ def get_history(profile=None):
         profile = get_profile()
     db_path = get_places_db(profile)
     # make a copy of the database to avoid locks
-    urls = set()
+    urls = set() # type: set[URL]
     with TemporaryDirectory() as temp_dir:
         temp_db = Path(temp_dir) / 'temp.sqlite'
         copyfile(db_path, temp_db)
