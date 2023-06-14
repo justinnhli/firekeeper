@@ -55,6 +55,8 @@ ARCHIVED = Status('archived')
 
 class URL:
 
+    LOCATION_TLDS = set(['uk', 'au', 'hk'])
+
     def __init__(self, url):
         # type: (str) -> None
         parts = urlsplit(url)
@@ -62,7 +64,7 @@ class URL:
         if parts.port:
             self.netloc = self.netloc[:-len(str(parts.port)) - 1]
         subdomains = self.netloc.split('.')
-        if subdomains[-1] in ('uk', 'au'):
+        if subdomains[-1] in URL.LOCATION_TLDS:
             self.domain = '.'.join(subdomains[-3:])
         else:
             self.domain = '.'.join(subdomains[-2:])
