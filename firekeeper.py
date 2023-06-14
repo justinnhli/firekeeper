@@ -418,6 +418,20 @@ class FireKeeper:
             f'{archived:,d} ({archived / total:.2%})',
         ]))
 
+    def search(self, *terms):
+        # type: (*str) -> None
+        if not terms:
+            return
+        for status, urls in self.urls.items():
+            matches = [
+                url for url in urls
+                if all(term in str(url) for term in terms)
+            ]
+            if matches:
+                print(f'{status} ({len(matches)})')
+                for url in sorted(matches):
+                    print(f'    {url}')
+
     def reset(self): # FIXME should rename this function
         # type: () -> None
         # re-sort all urls
@@ -505,11 +519,12 @@ def main():
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
         'action',
-        choices=['import', 'reset', 'status', 'archive', 'lint', 'workspace'],
+        choices=['import', 'reset', 'status', 'search', 'archive', 'lint', 'workspace'],
         default='status',
         nargs='?',
         help='action to perform (default: %(default)s)',
     )
+    arg_parser.add_argument('terms', metavar='term', nargs='*')
     args = arg_parser.parse_args()
     if args.action in archive_actions and not ARCHIVE_PATH.exists():
         raise FileNotFoundError(ARCHIVE_PATH)
@@ -524,6 +539,8 @@ def main():
         firekeeper.import_from_firefox()
     elif args.action == 'archive':
         firekeeper.archive()
+    elif args.action == 'search':
+        firekeeper.search(*(term for term in args.terms))
     elif args.action == 'lint':
         firekeeper.lint()
     elif args.action == 'workspace':
