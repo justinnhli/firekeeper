@@ -229,7 +229,7 @@ def archive_url(url):
         '--no-js',
         '--isolate',
         '--insecure',
-        '--timeout', '30',
+        '--timeout', '10',
         '--output', str(archive_path),
         str(url),
     ]
