@@ -225,6 +225,7 @@ def archive_url(url):
     command = [
         'monolith',
         #'--silent',
+        '--no-fonts',
         '--no-js',
         '--isolate',
         '--insecure',
