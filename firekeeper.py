@@ -548,7 +548,7 @@ def main():
         firekeeper.lint()
     elif args.action == 'workspace':
         workspace(firekeeper)
-    if args.action != 'status':
+    if args.action in modifying_actions:
         firekeeper.status()
 
 
