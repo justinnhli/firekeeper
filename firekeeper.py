@@ -350,7 +350,6 @@ class FireKeeper:
                 self.urls[from_status].discard(url)
                 self.urls[REJECTED].add(url)
 
-
     def add(self, urls):
         # type: (Iterable[URL]) -> None
         self._lock()
